@@ -7,6 +7,9 @@ using dotnet_rpg.Data;
 using dotnet_rpg.Dtos.Character;
 using dotnet_rpg.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Serilog;
+using Serilog.Sinks.MSSqlServer;
 
 namespace dotnet_rpg.Services.CharacterService
 {
@@ -23,6 +26,7 @@ namespace dotnet_rpg.Services.CharacterService
 
         }
 
+        
         public async Task<ServiceResponse<List<GetCharacterDTO>>> AddCharacter(AddCharacterDto newCharacter)
         {
             var serviceResponse = new ServiceResponse<List<GetCharacterDTO>>();
@@ -36,6 +40,16 @@ namespace dotnet_rpg.Services.CharacterService
         public async Task<ServiceResponse<List<GetCharacterDTO>>> DeleteCharacter(int id)
         {
             var serviceResponse = new ServiceResponse<List<GetCharacterDTO>>();
+
+            Log.Logger = new LoggerConfiguration()
+            .WriteTo
+            .MSSqlServer(
+             connectionString: "Server=localhost\\SQLEXPRESS;Database=dotnet-rpg;Trusted_Connection=True;",
+             sinkOptions: new MSSqlServerSinkOptions { TableName = "LogEvents" })
+            .CreateLogger();
+
+            
+
             try
             {
                 Character character = await _context.Characters.FirstAsync(c => c.Id == id);
@@ -46,9 +60,16 @@ namespace dotnet_rpg.Services.CharacterService
                 serviceResponse.Data = _context.Characters.Select(c => _mapper.Map<GetCharacterDTO>(c)).ToList();
             }
             catch (Exception ex)
-            {
+            {   
+                
+
                 serviceResponse.Success = false;
                 serviceResponse.Message = ex.Message;
+                Log.Information("After this point its Serilog");
+                Log.Error(ex, "Something went wrong");
+                
+
+                
             }
 
             return serviceResponse;
@@ -59,6 +80,7 @@ namespace dotnet_rpg.Services.CharacterService
             var serviceResponse = new ServiceResponse<List<GetCharacterDTO>>();
             var dbCharacters = await _context.Characters.ToListAsync();
             serviceResponse.Data = dbCharacters.Select(c => _mapper.Map<GetCharacterDTO>(c)).ToList();
+            
             return serviceResponse;
         }
 
